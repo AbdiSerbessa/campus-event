@@ -1,0 +1,61 @@
+@baseUrl = http://localhost:3000/api
+
+### 1. Get all events
+GET {{baseUrl}}/events
+
+### 2. Filter by category
+GET {{baseUrl}}/events?category=technology
+
+### 3. Filter by publication status
+GET {{baseUrl}}/events?isPublished=true
+
+### 4. Sort and paginate
+GET {{baseUrl}}/events?sortBy=eventDate&order=asc&page=2&limit=2
+
+### 5. Get upcoming events
+GET {{baseUrl}}/events/upcoming
+
+### 6. Get an existing event
+GET {{baseUrl}}/events/evt-101
+
+### 7. Request a missing event (expect 404)
+GET {{baseUrl}}/events/not-real
+
+### 8. Get sessions for an event
+GET {{baseUrl}}/events/evt-101/sessions
+
+### 9. Get a session under its event
+GET {{baseUrl}}/events/evt-101/sessions/ses-201
+
+### 10. Request a session that does not belong to the event (expect 404)
+GET {{baseUrl}}/events/evt-101/sessions/ses-203
+
+### 11. Create a valid event (expect 201)
+POST {{baseUrl}}/events
+Content-Type: application/json
+
+{
+  "title": "Intro to Cloud Computing",
+  "description": "A beginner-friendly campus workshop.",
+  "location": "Engineering Block, Room 2",
+  "eventDate": "2026-12-04T09:00:00.000Z",
+  "category": "technology",
+  "isPublished": true
+}
+
+### 12. Create an event with missing title (expect 400)
+POST {{baseUrl}}/events
+Content-Type: application/json
+
+{
+  "description": "Missing title should return 400 Bad Request",
+  "location": "Engineering Block, Room 2",
+  "eventDate": "2026-12-04T09:00:00.000Z",
+  "category": "technology",
+  "isPublished": true
+}
+
+### Stretch: Search, dateFrom/dateTo, published-only route
+GET {{baseUrl}}/events?search=cloud&dateFrom=2026-11-01T00:00:00.000Z&dateTo=2027-02-01T00:00:00.000Z
+###
+GET {{baseUrl}}/events/published
