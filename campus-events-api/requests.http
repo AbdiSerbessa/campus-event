@@ -59,3 +59,106 @@ Content-Type: application/json
 GET {{baseUrl}}/events?search=cloud&dateFrom=2026-11-01T00:00:00.000Z&dateTo=2027-02-01T00:00:00.000Z
 ###
 GET {{baseUrl}}/events/published
+
+
+
+
+
+@baseUrl = http://localhost:3000/api
+@apiKey = campus-secret
+
+### 1. GET all events -> 200 OK (also triggers LoggerMiddleware & TimingInterceptor)
+GET {{baseUrl}}/events
+
+### 2. Filter by category -> 200 OK with matching category events
+GET {{baseUrl}}/events?category=technology
+
+### 3. Filter by publication status -> 200 OK with matching isPublished events
+GET {{baseUrl}}/events?isPublished=true
+
+### 4. Sort and paginate -> 200 OK with sorted items & pagination metadata
+GET {{baseUrl}}/events?sortBy=eventDate&order=asc&page=1&limit=2
+
+### 5. Get upcoming events -> 200 OK with events dated today or later
+GET {{baseUrl}}/events/upcoming
+
+### 6. Get existing event -> 200 OK
+GET {{baseUrl}}/events/evt-101
+
+### 7. Get missing event -> 404 Not Found
+GET {{baseUrl}}/events/not-real
+
+### 8. Get event sessions -> 200 OK with sessions for evt-101
+GET {{baseUrl}}/events/evt-101/sessions
+
+### 9. Create valid event -> 201 Created
+POST {{baseUrl}}/events
+Content-Type: application/json
+x-api-key: {{apiKey}}
+
+{
+  "title": "Intro to Cloud Computing",
+  "description": "A beginner-friendly campus workshop.",
+  "location": "Engineering Block, Room 2",
+  "eventDate": "2026-12-04T09:00:00.000Z",
+  "category": "technology",
+  "isPublished": true
+}
+
+### 10. Create invalid event (end/logic or missing/bad fields) -> 400 Bad Request
+POST {{baseUrl}}/events
+Content-Type: application/json
+x-api-key: {{apiKey}}
+
+{
+  "title": "",
+  "location": "Engineering Block, Room 2",
+  "eventDate": "not-a-date",
+  "category": "technology",
+  "isPublished": "not-a-boolean"
+}
+
+### 11. Middleware check -> 200 OK & check API console for [Logger] output
+GET {{baseUrl}}/events?page=1&limit=5
+
+### 12a. Guard check (missing/invalid key) -> 401 Unauthorized (when CLASSROOM_API_KEY is set & @UseGuards(ApiKeyGuard) is active)
+POST {{baseUrl}}/events
+Content-Type: application/json
+x-api-key: wrong-key
+
+{
+  "title": "Unauthorized Workshop",
+  "description": "Should be blocked without valid API key.",
+  "location": "Hall A",
+  "eventDate": "2026-12-10T10:00:00.000Z",
+  "category": "technology",
+  "isPublished": true
+}
+
+### 12b. Guard check (valid key) -> 201 Created (when CLASSROOM_API_KEY=campus-secret & @UseGuards(ApiKeyGuard) is active)
+POST {{baseUrl}}/events
+Content-Type: application/json
+x-api-key: {{apiKey}}
+
+{
+  "title": "Authorized Workshop",
+  "description": "Allowed with valid x-api-key header.",
+  "location": "Hall A",
+  "eventDate": "2026-12-10T10:00:00.000Z",
+  "category": "technology",
+  "isPublished": true
+}
+
+### 13. Interceptor check -> 200 OK & check API console for [Timing] start/completed ms log
+GET {{baseUrl}}/events/evt-101
+
+### 14. ParseIntPipe check (invalid numeric input) -> 400 Bad Request
+GET {{baseUrl}}/events/example?page=hello
+
+### 15. ValidationPipe check (invalid DTO body) -> 400 Bad Request
+POST {{baseUrl}}/events
+Content-Type: application/json
+
+{
+  "title": "Valid Title Only"
+}

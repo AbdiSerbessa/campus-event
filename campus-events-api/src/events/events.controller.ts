@@ -5,16 +5,20 @@ import {
   HttpCode,
   HttpStatus,
   Param,
+  ParseIntPipe,
   Post,
   Query,
   Res,
+  UseInterceptors
 } from "@nestjs/common";
 import type { Response } from "express";
+import { TimingInterceptor } from "../common/timing.interceptor";
 import { CreateEventDto } from "./dto/create-event.dto";
 import { FindEventsQueryDto } from "./dto/find-events-query.dto";
 import { EventsService } from "./events.service";
 import { CreateSessionDto } from "./dto/create-session.dto";
 
+@UseInterceptors(TimingInterceptor)
 @Controller("events")
 export class EventsController {
   constructor(private readonly eventsService: EventsService) {}
@@ -39,7 +43,14 @@ export class EventsController {
   findPublished() {
     return this.eventsService.findPublished();
   }
-
+@Get("example")
+  findPage(@Query("page", ParseIntPipe) page: number) {
+    return {
+      page,
+      message: "Page received successfully",
+    };
+  }
+  
   @Get(":id")
   findOne(@Param("id") id: string) {
     return this.eventsService.findOne(id);
@@ -57,6 +68,7 @@ export class EventsController {
   ) {
     return this.eventsService.findOneSession(id, sessionId);
   }
+  
 
   @Post()
   @HttpCode(HttpStatus.CREATED)
