@@ -5,6 +5,7 @@ import {
   HttpCode,
   HttpStatus,
   Param,
+  UseGuards,
   ParseIntPipe,
   Post,
   Query,
@@ -17,6 +18,7 @@ import { CreateEventDto } from "./dto/create-event.dto";
 import { FindEventsQueryDto } from "./dto/find-events-query.dto";
 import { EventsService } from "./events.service";
 import { CreateSessionDto } from "./dto/create-session.dto";
+import { ApiKeyGuard } from "../common/api-key.guard";
 
 @UseInterceptors(TimingInterceptor)
 @Controller("events")
@@ -71,11 +73,13 @@ export class EventsController {
   
 
   @Post()
+  @UseGuards(ApiKeyGuard)
   @HttpCode(HttpStatus.CREATED)
   create(@Body() body: CreateEventDto) {
     return this.eventsService.create(body);
   }
   @Post(":id/sessions")
+  @UseGuards(ApiKeyGuard)
 @HttpCode(HttpStatus.CREATED)
 createSession(
   @Param("id") id: string,

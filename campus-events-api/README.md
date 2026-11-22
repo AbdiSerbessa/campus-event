@@ -1,84 +1,122 @@
-# Campus Events API (`campus-events-api`)
+# Campus Events API (NestJS)
 
-A RESTful backend API built with **NestJS** and **TypeScript** for managing campus events and their scheduled sessions. Students can browse upcoming events, filter, sort, and paginate through event listings, view event details and sessions, and create new events and sessions.
+A RESTful backend API built with NestJS and TypeScript for managing campus events and event sessions, using in-memory data storage, DTO validation, and custom request lifecycle components.
 
-## Features & Architecture
+---
 
-The application follows NestJS modular architecture with clear separation of responsibilities:
+## 1. Installation & Run Instructions
 
-- **Module (`EventsModule`)**: Wires together the controller and service for the events feature.
-- **Controller (`EventsController`)**: Defines `/api/events` routes, extracts `@Param()`, `@Query()`, and `@Body()`, and enforces route ordering (static routes like `/upcoming` are declared before dynamic `/:id` routes).
-- **Service (`EventsService`)**: Manages in-memory `Map` storage pre-populated with sample campus events and sessions, performs business logic, and validates relationships and timestamps.
-- **DTOs (`CreateEventDto`, `CreateSessionDto`, `FindEventsQueryDto`)**: Validate incoming payloads and query parameters using `class-validator` and `class-transformer`.
+### Prerequisites
+- **Node.js** (v18+ recommended)
+- **npm**
 
-## Installation & Running Instructions
+### Setup
+```bash
+cd campus-events-api
+npm install
+```
 
-1. **Install dependencies**:
-   ```bash
-   npm install
-   ```
+### Run the Server
+```bash
+# Development mode (watch mode)
+npm run start:dev
 
-2. **Build the TypeScript project**:
-   ```bash
-   npm run build
-   ```
+# Production build & run
+npm run build
+npm run start:prod
+```
 
-3. **Start the server**:
-   - **Development mode**:
-     ```bash
-     npm run start:dev
-     ```
-   - **Production / compiled mode**:
-     ```bash
-     node dist/main.js
-     ```
+The API runs at **`http://localhost:3000/api`** (global `/api` prefix enabled in `src/main.ts`).
 
-The API runs by default at **`http://localhost:3000/api`**.
+### Optional API Key Protection
+To enforce API key authentication on protected `POST` routes (`POST /api/events`), set `CLASSROOM_API_KEY` before starting the server:
+```bash
+# Git Bash / macOS / Linux
+CLASSROOM_API_KEY=campus-secret npm run start:dev
 
-## API Endpoints
+# Windows PowerShell
+$env:CLASSROOM_API_KEY="campus-secret"; npm run start:dev
+```
+If `CLASSROOM_API_KEY` is unset, `ApiKeyGuard` allows `POST` requests without requiring an `x-api-key` header.
 
-| Method | Endpoint | Description | Status Codes |
-| :--- | :--- | :--- | :--- |
-| `GET` | `/api/events` | List events with filtering, sorting, and pagination | `200 OK`, `400 Bad Request` |
-| `GET` | `/api/events/upcoming` | List events occurring today or in the future | `200 OK` |
-| `GET` | `/api/events/:id` | Retrieve a single event by ID | `200 OK`, `404 Not Found` |
-| `GET` | `/api/events/:id/sessions` | Retrieve all sessions belonging to an event | `200 OK`, `404 Not Found` |
-| `GET` | `/api/events/:id/sessions/:sessionId` | Retrieve a specific session under its parent event | `200 OK`, `404 Not Found` |
-| `POST` | `/api/events` | Create a new campus event | `201 Created`, `400 Bad Request` |
-| `POST` | `/api/events/:id/sessions` | Add a new session to an existing event (`endsAt > startsAt`) | `201 Created`, `400 Bad Request`, `404 Not Found` |
+---
 
-## Filtering, Sorting & Pagination
+## 2. In-Memory Data Storage
 
-`GET /api/events` processes query parameters (`category`, `location`, `isPublished`, `sortBy`, `order`, `page`, `limit`) in three sequential stages:
+- Data is stored in memory inside `EventsService` (`src/events/events.service.ts`) using seeded arrays/maps of **Events** and nested **Sessions**.
+- No external database is required to run or test the API.
+- Because storage is in-memory, any newly created events or sessions persist while the server is running and reset to the initial seed dataset whenever the server restarts.
 
-1. **Filtering**: Matches `category` (case-insensitive), `location` (substring match), and `isPublished` (`true`/`false`).
-2. **Sorting**: Clones the filtered array (`[...filtered]`) so original seed data is never mutated, then sorts by `eventDate` or `title` in `asc` or `desc` order.
-3. **Pagination**: Calculates `offset = (page - 1) * limit` (default `page = 1`, `limit = 5`), slices `items = sorted.slice(offset, offset + limit)`, and returns:
-   ```json
-   {
-     "items": [],
-     "total": 8,
-     "page": 1,
-     "limit": 5,
-     "totalPages": 2
-   }
-   ```
+---
 
-## Tested API Cases (`requests.http`)
+## 3. API Routes
 
-| # | Test Case | Request | Expected Status |
-| :- | :--- | :--- | :--- |
-| 1 | Get all events | `GET /api/events` | `200 OK` |
-| 2 | Filter by category | `GET /api/events?category=technology` | `200 OK` |
-| 3 | Filter by publication status | `GET /api/events?isPublished=true` | `200 OK` |
-| 4 | Sort and paginate | `GET /api/events?sortBy=eventDate&order=asc&page=2&limit=2` | `200 OK` |
-| 5 | Get upcoming events | `GET /api/events/upcoming` | `200 OK` |
-| 6 | Get existing event | `GET /api/events/evt-101` | `200 OK` |
-| 7 | Request non-existent event | `GET /api/events/not-real` | `404 Not Found` |
-| 8 | Get sessions for an event | `GET /api/events/evt-101/sessions` | `200 OK` |
-| 9 | Get session under its event | `GET /api/events/evt-101/sessions/ses-201` | `200 OK` |
-| 10 | Get mismatched session/event | `GET /api/events/evt-101/sessions/ses-203` | `404 Not Found` |
-| 11 | Create a valid event | `POST /api/events` | `201 Created` |
-| 12 | Create event with missing title | `POST /api/events` | `400 Bad Request` |
-| 13 | Create valid session for event | `POST /api/events/evt-101/sessions` | `201 Created` |
-| 14 | Create session with invalid times | `POST /api/events/evt-101/sessions` (`endsAt <= startsAt`) | `400 Bad Request` |
+Base URL: `http://localhost:3000/api`
+
+| Method | Endpoint | Description |
+| :--- | :--- | :--- |
+| `GET` | `/events` | List events (supports query filters: `category`, `isPublished`, `sortBy`, `order`, `page`, `limit`) |
+| `GET` | `/events/upcoming` | List upcoming published events |
+| `GET` | `/events/example` | Demo route testing `ParseIntPipe` on `?page=` |
+| `GET` | `/events/:id` | Get a single event by ID (`404` if not found) |
+| `GET` | `/events/:id/sessions` | List all sessions for a specific event |
+| `GET` | `/events/:id/sessions/:sessionId` | Get a specific session under an event |
+| `POST` | `/events` | Create a new event (protected by `ApiKeyGuard` & validated by `ValidationPipe`) |
+| `POST` | `/events/:id/sessions` | Create a new session under an event |
+
+---
+
+## 4. Request Lifecycle
+
+Every incoming request flows through NestJS's execution pipeline in this order:
+
+1. **Middleware (`LoggerMiddleware` — `src/common/logger.middleware.ts`)**
+   - Applied globally across all routes in `AppModule`.
+   - Logs the HTTP method, request URL, and ISO timestamp to the terminal before route handling begins.
+2. **Guard (`ApiKeyGuard` — `src/common/api-key.guard.ts`)**
+   - Attached via `@UseGuards(ApiKeyGuard)` on `POST /api/events`.
+   - When `CLASSROOM_API_KEY` is configured, verifies that the incoming `x-api-key` header matches; otherwise throws `401 Unauthorized`.
+3. **Pipes (`ValidationPipe` & `ParseIntPipe`)**
+   - Global `ValidationPipe` (`whitelist: true`, `forbidNonWhitelisted: true`, `transform: true`) validates and transforms incoming DTO payloads before controller methods run.
+   - `ParseIntPipe` validates and converts numeric query/route parameters (such as `?page=2`).
+4. **Controller & Service (`EventsController` & `EventsService`)**
+   - Executes business logic and reads/writes in-memory event and session records.
+5. **Interceptor (`TimingInterceptor` — `src/common/timing.interceptor.ts`)**
+   - Attached to `EventsController` via `@UseInterceptors(TimingInterceptor)`.
+   - Measures execution time from request entry to response completion (`ms`) and logs it without altering the JSON response structure.
+
+---
+
+## 5. Validation Rules
+
+- **Global `ValidationPipe` (`src/main.ts`):**
+  - `whitelist: true` — strips properties not defined on the DTO.
+  - `forbidNonWhitelisted: true` — rejects requests containing unexpected extra fields with `400 Bad Request`.
+  - `transform: true` — automatically transforms payloads into DTO class instances and primitive types.
+- **Create Event DTO (`CreateEventDto`):**
+  - `title`, `description`, `location`, `category`: required non-empty strings (`@IsString()`, `@IsNotEmpty()`).
+  - `eventDate`: required valid ISO-8601 date string (`@IsDateString()`).
+  - `isPublished`: optional boolean (`@IsBoolean()`, `@IsOptional()`).
+- **Create Session DTO (`CreateSessionDto`):**
+  - `title`, `speaker`, `room`: required non-empty strings.
+  - `startTime`, `endTime`: required valid ISO-8601 date strings.
+- **Numeric Parameter Validation (`ParseIntPipe`):**
+  - Rejects non-integer values (e.g., `?page=hello`) with `400 Bad Request`.
+
+---
+
+## 6. How to Test Middleware, Guard, Interceptor, and Pipes
+
+You can run all automated HTTP checks directly from **`campus-events-api/requests.http`** using the VS Code **REST Client** extension:
+
+1. **Middleware (`LoggerMiddleware`) & Interceptor (`TimingInterceptor`):**
+   - Send any request (e.g., `GET http://localhost:3000/api/events`).
+   - Check the backend terminal to see `[Logger] GET /api/events ...` and `[Timing] GET /api/events - Xms`.
+2. **Guard (`ApiKeyGuard`):**
+   - Start the server with `CLASSROOM_API_KEY=campus-secret npm run start:dev`.
+   - Send `POST /api/events` with a missing or wrong `x-api-key` header → returns **`401 Unauthorized`**.
+   - Send `POST /api/events` with `x-api-key: campus-secret` → returns **`201 Created`**.
+3. **Pipes (`ValidationPipe` & `ParseIntPipe`):**
+   - Send `POST /api/events` with missing required fields, an invalid date, or an unknown extra field → returns **`400 Bad Request`**.
+   - Send `GET /api/events/example?page=hello` → returns **`400 Bad Request`** (`ParseIntPipe`).
+   - Send `GET /api/events/example?page=2` → returns **`200 OK`** with `{"page": 2, ...}`.
